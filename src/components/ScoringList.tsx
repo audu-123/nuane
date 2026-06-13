@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Plus, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Plus } from 'lucide-react';
 import { SCORE_ANCHORS } from '../data/mockData';
 import type { ScoringDimension } from '../types';
 
@@ -11,6 +11,7 @@ interface ScoringListProps {
 }
 
 const SCORES = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
+const ANCHOR_SCORES = [-5, -3, -1, 0, 1, 3, 5];
 
 function getRowBg(score: number | null): string {
   if (score === null) return 'bg-white';
@@ -21,14 +22,21 @@ function getRowBg(score: number | null): string {
 
 function getNodeColor(nodeScore: number, currentScore: number | null): string {
   if (currentScore === null || nodeScore !== currentScore) {
-    return 'bg-gray-200 hover:bg-gray-300 border-gray-200';
+    return 'bg-white border-gray-200';
   }
-  if (currentScore < 0) return 'bg-red-400 border-red-400';
+  if (currentScore < 0) return 'bg-white border-red-400';
+  if (currentScore > 0) return 'bg-white border-[#0052D9]';
+  return 'bg-white border-gray-500';
+}
+
+function getSelectedNodeColor(nodeScore: number, currentScore: number | null): string {
+  if (currentScore === null || nodeScore !== currentScore) {
+    return 'bg-gray-200 border-gray-200';
+  }
+  if (currentScore < 0) return 'bg-red-500 border-red-500';
   if (currentScore > 0) return 'bg-[#0052D9] border-[#0052D9]';
   return 'bg-gray-500 border-gray-500';
 }
-
-const ANCHOR_SCORES = [-5, -3, -1, 0, 1, 3, 5];
 
 export const ScoringList: React.FC<ScoringListProps> = ({
   dimensions,
@@ -107,22 +115,9 @@ export const ScoringList: React.FC<ScoringListProps> = ({
         >
           <div className="px-4 py-3">
             {/* Row header */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-4">
               <span className="text-sm font-medium text-gray-700">{dim.label}</span>
               <div className="flex items-center gap-3">
-                {dim.score !== null && (
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      dim.score < 0
-                        ? 'bg-red-100 text-red-600'
-                        : dim.score > 0
-                        ? 'bg-blue-100 text-[#0052D9]'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {dim.score > 0 ? `+${dim.score}` : dim.score}
-                  </span>
-                )}
                 <button
                   onClick={() => onRemoveDimension(dim.id)}
                   className="text-gray-300 hover:text-red-400 transition-colors"
@@ -133,47 +128,63 @@ export const ScoringList: React.FC<ScoringListProps> = ({
               </div>
             </div>
 
-            {/* Score bar */}
-            <div className="relative">
-              {/* Track line */}
-              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-200 -translate-y-1/2 z-0" />
-              {/* Nodes */}
-              <div className="relative z-10 flex items-center justify-between">
+            {/* Score bar - 3 independent flex rows for perfect centering */}
+            <div className="relative px-2 mb-2">
+              {/* Row 1: Score numbers */}
+              <div className="flex justify-between relative z-10">
                 {SCORES.map((s) => {
-                  const isAnchor = ANCHOR_SCORES.includes(s);
                   const isSelected = dim.score === s;
                   return (
-                    <div key={s} className="flex flex-col items-center gap-1">
-                      <button
-                        onClick={() => onScoreChange(dim.id, s)}
-                        title={SCORE_ANCHORS[s] || String(s)}
-                        className={`rounded-full border-2 transition-all duration-150 ${
-                          isSelected
-                            ? `w-4 h-4 ${getNodeColor(s, dim.score)} scale-125 shadow-md`
-                            : `${isAnchor ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} ${getNodeColor(s, dim.score)}`
-                        }`}
-                      />
-                      {/* Score label - always shown */}
+                    <div key={s} className="w-[40px] flex justify-center h-4 items-end mb-1">
                       <span
-                        className={`text-center leading-tight transition-all ${
+                        className={`text-[10px] leading-none ${
                           isSelected
-                            ? dim.score! < 0
-                              ? 'text-red-500 font-bold text-xs'
-                              : dim.score! > 0
-                              ? 'text-[#0052D9] font-bold text-xs'
-                              : 'text-gray-600 font-bold text-xs'
-                            : 'text-gray-400 text-xs'
+                            ? dim.score! < 0 ? 'text-red-500 font-bold text-[11px]' : dim.score! > 0 ? 'text-[#0052D9] font-bold text-[11px]' : 'text-gray-600 font-bold text-[11px]'
+                            : 'text-gray-400'
                         }`}
-                        style={{ fontSize: '10px' }}
                       >
                         {s > 0 ? `+${s}` : s}
                       </span>
-                      {/* Anchor text */}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Row 2: Track line & Nodes */}
+              <div className="relative h-4 flex items-center my-1.5">
+                {/* Track line perfectly centered in the row */}
+                <div className="absolute left-5 right-5 h-[2px] bg-gray-200 z-0" />
+                
+                <div className="relative z-10 w-full flex justify-between">
+                  {SCORES.map((s) => {
+                    const isAnchor = ANCHOR_SCORES.includes(s);
+                    const isSelected = dim.score === s;
+                    
+                    return (
+                      <div key={s} className="w-[40px] flex justify-center items-center">
+                        <button
+                          onClick={() => onScoreChange(dim.id, s)}
+                          title={SCORE_ANCHORS[s] || String(s)}
+                          className={`rounded-full border-[3px] transition-all duration-150 ${
+                            isSelected
+                              ? `w-4 h-4 ${getSelectedNodeColor(s, dim.score)} scale-125 shadow-sm`
+                              : `${isAnchor ? 'w-[14px] h-[14px]' : 'w-2.5 h-2.5'} ${getNodeColor(s, dim.score)}`
+                          }`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 3: Anchor text */}
+              <div className="flex justify-between">
+                {SCORES.map((s) => {
+                  const isAnchor = ANCHOR_SCORES.includes(s);
+                  return (
+                    <div key={s} className="w-[40px] flex justify-center h-6 mt-1">
                       {isAnchor && (
-                        <span
-                          className="text-center text-gray-400 leading-tight"
-                          style={{ fontSize: '9px', maxWidth: '40px', wordBreak: 'break-all' }}
-                        >
+                        <span className="text-center text-gray-400 leading-[1.1]" style={{ fontSize: '10px', width: '36px' }}>
                           {SCORE_ANCHORS[s]}
                         </span>
                       )}
