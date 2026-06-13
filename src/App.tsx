@@ -4,13 +4,14 @@ import { InterviewQueue } from './components/InterviewQueue';
 import { ScoringBoard } from './components/ScoringBoard';
 import { CandidateView } from './components/CandidateView';
 import { InterviewArchive } from './components/InterviewArchive';
-import { mockCandidates } from './data/mockData';
-import type { Candidate, Page } from './types';
+import { mockCandidates, learningResources as initialResources } from './data/mockData';
+import type { Candidate, Page, LearningResource } from './types';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('queue');
   const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [resources, setResources] = useState<LearningResource[]>(initialResources);
 
   const handleEnterScoring = (candidate: Candidate) => {
     setSelectedCandidate(candidate);
@@ -51,14 +52,14 @@ export default function App() {
             );
           }
           return (
-            <ScoringBoard candidate={fallback} onBack={handleBackFromScoring} />
+            <ScoringBoard candidate={fallback} onBack={handleBackFromScoring} resources={resources} setResources={setResources} />
           );
         }
         return (
-          <ScoringBoard candidate={selectedCandidate} onBack={handleBackFromScoring} />
+          <ScoringBoard candidate={selectedCandidate} onBack={handleBackFromScoring} resources={resources} setResources={setResources} />
         );
       case 'candidate':
-        return <CandidateView />;
+        return <CandidateView resources={resources} />;
       case 'archive':
         return <InterviewArchive />;
       default:

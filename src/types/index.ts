@@ -4,6 +4,7 @@ export interface Candidate {
   name: string;
   position: string;
   round: string;
+  date?: string;
   time: string;
   tags: string[];
   result?: 'pass' | 'fail' | null;
@@ -56,3 +57,12 @@ export type Page = 'queue' | 'scoring' | 'candidate' | 'archive';
 
 // 发送策略
 export type SendStrategy = 'immediate' | 'delay2h' | 'custom';
+
+// 学习资源
+export interface LearningResource {
+  id: number;
+  icon: string;
+  title: string;
+  desc: string;
+  url: string;
+}

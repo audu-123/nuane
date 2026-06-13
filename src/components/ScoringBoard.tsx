@@ -3,11 +3,13 @@ import { ArrowLeft, CheckCircle2, XCircle, Zap } from 'lucide-react';
 import { ScoringList } from './ScoringList';
 import { SmartNoteBox } from './SmartNoteBox';
 import { FeedbackPanel } from './FeedbackPanel';
-import type { Candidate, ScoringDimension } from '../types';
+import type { Candidate, ScoringDimension, LearningResource } from '../types';
 
 interface ScoringBoardProps {
   candidate: Candidate;
   onBack: () => void;
+  resources: LearningResource[];
+  setResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
 }
 
 let dimIdCounter = 0;
@@ -15,7 +17,7 @@ function newDimId() {
   return `dim-${++dimIdCounter}-${Date.now()}`;
 }
 
-export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack }) => {
+export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, resources, setResources }) => {
   const [dimensions, setDimensions] = useState<ScoringDimension[]>(
     candidate.tags.map((t) => ({ id: newDimId(), label: t, score: null }))
   );
@@ -190,6 +192,8 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack })
               result={result}
               dimensions={dimensions}
               candidateName={candidate.name}
+              resources={resources}
+              setResources={setResources}
             />
           )}
 

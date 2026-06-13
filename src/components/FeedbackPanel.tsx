@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, MessageSquare } from 'lucide-react';
+import { FileText, MessageSquare, Trash2, Plus } from 'lucide-react';
 import { HighlightShuttle } from './HighlightShuttle';
 import { SendStrategyPanel } from './SendStrategy';
-import { mockFeedback, learningResources } from '../data/mockData';
-import type { ScoringDimension } from '../types';
+import { mockFeedback } from '../data/mockData';
+import type { ScoringDimension, LearningResource } from '../types';
 
 interface FeedbackPanelProps {
   result: 'pass' | 'fail';
   dimensions: ScoringDimension[];
   candidateName: string;
+  resources: LearningResource[];
+  setResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,32 +47,115 @@ interface FeedbackPanelProps {
 //   2. 以候选人低分维度标签为 query，调用元器知识库检索接口。
 //   3. 取返回结果的前 2~3 条映射为 { icon, title, desc, url } 格式渲染为推荐卡片。
 // ─────────────────────────────────────────────────────────────────────────────
-function ResourceCards() {
-  // [AI接入指引] 替换 learningResources 为从元器知识库检索的动态结果
+function ResourceCards({ resources, setResources }: { resources: LearningResource[], setResources: React.Dispatch<React.SetStateAction<LearningResource[]>> }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+
+  const handleAdd = () => {
+    if (!newTitle) return;
+    const newResource: LearningResource = {
+      id: Date.now(),
+      icon: '📘',
+      title: newTitle,
+      desc: newDesc,
+      url: newUrl || 'https://ke.qq.com',
+    };
+    setResources([...resources, newResource]);
+    setIsAdding(false);
+    setNewTitle('');
+    setNewDesc('');
+    setNewUrl('');
+  };
+
+  const handleDelete = (id: number) => {
+    setResources(resources.filter(r => r.id !== id));
+  };
+
   return (
     <div className="mt-3 space-y-2">
-      {learningResources.map((r) => (
-        <div key={r.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#0052D9]/30 hover:shadow-sm transition-all">
+      {resources.map((r) => (
+        <div key={r.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#0052D9]/30 hover:shadow-sm transition-all group">
           <span className="text-xl flex-shrink-0">{r.icon}</span>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-gray-800 mb-0.5">{r.title}</div>
             <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{r.desc}</p>
           </div>
-          <a
-            href={r.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-shrink-0 text-xs px-2.5 py-1 bg-[#0052D9] text-white rounded-lg hover:bg-[#003BA5] transition-colors whitespace-nowrap"
-          >
-            立即学习
-          </a>
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <button
+              onClick={() => handleDelete(r.id)}
+              className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="删除资源"
+            >
+              <Trash2 size={14} />
+            </button>
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-2.5 py-1 bg-[#0052D9] text-white rounded-lg hover:bg-[#003BA5] transition-colors whitespace-nowrap"
+            >
+              学习
+            </a>
+          </div>
         </div>
       ))}
+      
+      {isAdding ? (
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+          <input
+            autoFocus
+            type="text"
+            placeholder="资源名称"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded outline-none focus:border-[#0052D9]"
+          />
+          <input
+            type="text"
+            placeholder="资源描述"
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded outline-none focus:border-[#0052D9]"
+          />
+          <input
+            type="text"
+            placeholder="资源链接 (选填)"
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded outline-none focus:border-[#0052D9]"
+          />
+          <div className="flex gap-2 justify-end mt-2">
+            <button
+              onClick={() => setIsAdding(false)}
+              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={!newTitle}
+              className="text-xs bg-[#0052D9] text-white px-3 py-1 rounded hover:bg-[#003BA5] disabled:opacity-50"
+            >
+              确定添加
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setIsAdding(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-gray-300 text-gray-500 rounded-lg text-xs hover:border-[#0052D9] hover:text-[#0052D9] transition-colors"
+        >
+          <Plus size={14} />
+          新增学习资源
+        </button>
+      )}
     </div>
   );
 }
 
-export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName }) => {
+export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName, resources, setResources }) => {
   const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
 
   // [AI接入指引] 以下 mockFeedback[result] 为 Mock 硬编码数据。
@@ -134,7 +219,7 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
             {/* Resource cards */}
             <div className="pt-1">
               <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">📚 推荐学习资源</div>
-              <ResourceCards />
+              <ResourceCards resources={resources} setResources={setResources} />
             </div>
             {/* Send strategy */}
             <div className="pt-1 border-t border-gray-100">

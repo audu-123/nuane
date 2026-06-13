@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, ExternalLink, Heart } from 'lucide-react';
-import { learningResources } from '../data/mockData';
+import type { LearningResource } from '../types';
 
 // 模拟候选人接收到的反馈内容（来自面试官发送的对外反馈）
 // [AI接入指引]
@@ -46,7 +46,11 @@ function renderSimpleMarkdown(text: string) {
   });
 }
 
-export const CandidateView: React.FC = () => {
+interface CandidateViewProps {
+  resources: LearningResource[];
+}
+
+export const CandidateView: React.FC<CandidateViewProps> = ({ resources }) => {
   const [consent, setConsent] = useState<'yes' | 'no' | null>(null);
   const result = MOCK_RESULT;
 
@@ -155,7 +159,7 @@ export const CandidateView: React.FC = () => {
                       📚 推荐学习资源
                     </div>
                     <div className="space-y-2.5">
-                      {learningResources.slice(0, 2).map((r) => (
+                      {resources.slice(0, 2).map((r) => (
                         <div key={r.id} className="flex items-start gap-2.5 p-2.5 bg-gray-50 rounded-lg">
                           <span className="text-base flex-shrink-0">{r.icon}</span>
                           <div className="flex-1 min-w-0">
