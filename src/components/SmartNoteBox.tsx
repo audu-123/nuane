@@ -12,7 +12,7 @@ export const SmartNoteBox: React.FC<SmartNoteBoxProps> = ({
   return (
     <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-800">智能备注</h3>
+        <h3 className="text-sm font-semibold text-gray-800">备注</h3>
       </div>
 
       {/* Note textarea — raw text, no transformation */}

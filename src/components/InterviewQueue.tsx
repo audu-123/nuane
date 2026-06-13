@@ -182,7 +182,7 @@ export const InterviewQueue: React.FC<InterviewQueueProps> = ({
                     onClick={() => onEnterScoring(candidate)}
                     className="px-3 py-1.5 text-xs bg-[#0052D9] text-white rounded-lg hover:bg-[#003BA5] transition-colors flex items-center gap-1 shadow-sm"
                   >
-                    进入配置
+                    进入面试
                     <ChevronRight size={12} />
                   </button>
                 </div>
