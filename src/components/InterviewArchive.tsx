@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronDown, ChevronUp, Search, Filter } from 'lucide-react';
 import { mockArchiveRecords } from '../data/mockData';
-import type { InterviewRecord, ScoringDimension } from '../types';
+import type { InterviewRecord } from '../types';
 
 function ScoreBar({ score }: { score: number }) {
   const isNeg = score < 0;
-  const pct = Math.abs(score) / 5;
+  // T13: Bidirectional number line (max width 50% for each half)
+  const pct = (Math.abs(score) / 5) * 50;
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-gray-100 rounded-full relative">
+        {/* Center zero line */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-gray-300 z-10" />
+        {/* Fill */}
         <div
-          className={`h-full rounded-full transition-all ${isNeg ? 'bg-red-400' : score > 0 ? 'bg-[#0052D9]' : 'bg-gray-300'}`}
-          style={{ width: `${pct * 100}%` }}
+          className={`absolute top-0 bottom-0 transition-all ${isNeg ? 'bg-red-400' : score > 0 ? 'bg-[#0052D9]' : 'bg-transparent'}`}
+          style={{
+            width: `${pct}%`,
+            left: isNeg ? `${50 - pct}%` : '50%',
+            borderRadius: isNeg ? '4px 0 0 4px' : '0 4px 4px 0'
+          }}
         />
       </div>
       <span className={`text-xs font-mono font-bold w-6 text-right ${isNeg ? 'text-red-500' : score > 0 ? 'text-[#0052D9]' : 'text-gray-500'}`}>
@@ -75,14 +83,32 @@ function RecordDetail({ record }: { record: InterviewRecord }) {
 
 export const InterviewArchive: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [resultFilter, setResultFilter] = useState<'all' | 'pass' | 'fail'>('all');
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
 
-  const filtered = mockArchiveRecords.filter(
-    (r) =>
-      r.candidateName.includes(searchQuery) ||
-      r.position.includes(searchQuery) ||
-      searchQuery === ''
-  );
+  // T12: Multi-criteria filtering
+  const filtered = useMemo(() => {
+    return mockArchiveRecords.filter((r) => {
+      // 1. Result exact match filter
+      if (resultFilter !== 'all' && r.result !== resultFilter) return false;
+
+      // 2. Global text search (matches Round, Time, Name, Tags, Notes, Feedback)
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+
+      const dimsMatch = r.dimensions.some(d => d.label.toLowerCase().includes(q));
+      const textMatch =
+        r.candidateName.toLowerCase().includes(q) ||
+        r.position.toLowerCase().includes(q) ||
+        r.round.toLowerCase().includes(q) ||
+        r.date.toLowerCase().includes(q) ||
+        r.noteText.toLowerCase().includes(q) ||
+        r.feedbackInternal.toLowerCase().includes(q) ||
+        r.feedbackExternal.toLowerCase().includes(q);
+
+      return dimsMatch || textMatch;
+    });
+  }, [searchQuery, resultFilter]);
 
   const toggleExpand = (id: number) => {
     setExpandedIds((prev) =>
@@ -99,15 +125,38 @@ export const InterviewArchive: React.FC = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="🔍 按候选人姓名或岗位筛选..."
-          className="w-full max-w-md px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#0052D9] focus:ring-1 focus:ring-[#0052D9]/20 transition-all bg-white"
-        />
+      {/* Filters */}
+      <div className="mb-4 flex gap-3">
+        <div className="relative flex-1 max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={16} className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="全文检索：支持姓名、岗位、轮次、时间、面评..."
+            className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#0052D9] focus:ring-1 focus:ring-[#0052D9]/20 transition-all bg-white"
+          />
+        </div>
+
+        <div className="relative flex-shrink-0">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Filter size={14} className="text-gray-400" />
+          </div>
+          <select
+            value={resultFilter}
+            onChange={(e) => setResultFilter(e.target.value as any)}
+            className="pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#0052D9] focus:ring-1 focus:ring-[#0052D9]/20 transition-all bg-white appearance-none cursor-pointer text-gray-700"
+          >
+            <option value="all">所有面试结果</option>
+            <option value="pass">仅看通过</option>
+            <option value="fail">仅看未过</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+            <ChevronDown size={14} className="text-gray-400" />
+          </div>
+        </div>
       </div>
 
       {/* Records list */}
@@ -120,7 +169,7 @@ export const InterviewArchive: React.FC = () => {
           return (
             <div
               key={record.id}
-              className="bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-all"
+              className="bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-all shadow-sm"
             >
               <div className="flex items-center gap-4 px-4 py-3.5">
                 {/* Avatar */}
@@ -139,11 +188,10 @@ export const InterviewArchive: React.FC = () => {
 
                 {/* Result badge */}
                 <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                    record.result === 'pass'
-                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                      : 'bg-red-50 text-red-600 border border-red-200'
-                  }`}
+                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${record.result === 'pass'
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                    : 'bg-red-50 text-red-600 border border-red-200'
+                    }`}
                 >
                   {record.result === 'pass' ? '✅ 通过' : '❌ 未过'}
                 </span>

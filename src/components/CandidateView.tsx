@@ -128,19 +128,14 @@ export const CandidateView: React.FC = () => {
                 </div>
               )}
 
-              {/* No consent */}
-              {consent === 'no' && (
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center">
-                  <p className="text-sm text-gray-700 font-medium">
-                    {result === 'pass' ? '✅ 本轮面试：通过' : '本轮面试已结束'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">如需查看详细建议，请联系 HR 获取。</p>
-                </div>
-              )}
-
-              {/* Full content */}
+              {/* Full content (consent === 'yes') */}
               {consent === 'yes' && (
                 <div className="space-y-3">
+                  <div className="flex justify-start">
+                    <button onClick={() => setConsent(null)} className="text-xs text-[#0052D9] hover:underline flex items-center gap-0.5">
+                      ← 返回
+                    </button>
+                  </div>
                   {/* Main feedback */}
                   <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
@@ -179,6 +174,21 @@ export const CandidateView: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* No consent (T10 & T11) */}
+              {consent === 'no' && (
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 text-center">
+                  <p className="text-base text-gray-900 font-bold mb-4">
+                    {result === 'pass' ? '已通过' : '未通过'}
+                  </p>
+                  <button
+                    onClick={() => setConsent(null)}
+                    className="text-xs text-[#0052D9] hover:underline"
+                  >
+                    返回
+                  </button>
                 </div>
               )}
 
