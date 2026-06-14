@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { InterviewQueue } from './components/InterviewQueue';
 import { ScoringBoard } from './components/ScoringBoard';
 import { CandidateView } from './components/CandidateView';
 import { InterviewArchive } from './components/InterviewArchive';
 import { mockCandidates, learningResources as initialResources } from './data/mockData';
+import { fetchCandidatesFromFeishu } from './services/feishu';
 import type { Candidate, Page, LearningResource } from './types';
 
 export default function App() {
@@ -12,6 +13,16 @@ export default function App() {
   const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [resources, setResources] = useState<LearningResource[]>(initialResources);
+
+  useEffect(() => {
+    const loadFeishuData = async () => {
+      const data = await fetchCandidatesFromFeishu();
+      if (data && data.length > 0) {
+        setCandidates(data);
+      }
+    };
+    loadFeishuData();
+  }, []);
 
   const handleEnterScoring = (candidate: Candidate) => {
     setSelectedCandidate(candidate);
