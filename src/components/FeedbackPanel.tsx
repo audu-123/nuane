@@ -10,6 +10,7 @@ import type { ScoringDimension, LearningResource } from '../types';
 interface FeedbackPanelProps {
   result: 'pass' | 'fail';
   dimensions: ScoringDimension[];
+  candidateId: number;
   candidateName: string;
   round: string;
   position: string;
@@ -158,7 +159,7 @@ function ResourceCards({ resources, setResources }: { resources: LearningResourc
   );
 }
 
-export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName, round, position, noteText, resources, setResources, onSent }) => {
+export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateId, candidateName, round, position, noteText, resources, setResources, onSent }) => {
   const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
   const [canCopyInternal, setCanCopyInternal] = useState(false);
   const [canSendExternal, setCanSendExternal] = useState(false);
@@ -219,8 +220,8 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
           } catch {
             // JSON parse failed, keep existing resources
           }
-          // Remove the JSON code block from the displayed text (handle both cases)
-          cleanExternal = cleanExternal.replace(/```json\s*[\s\S]*?\s*```/, '').replace(/\[\s*\{[\s\S]*\}\s*\]/, '').trim();
+          // Remove the JSON code block from the displayed text
+          cleanExternal = cleanExternal.replace(jsonMatch[0], '').trim();
         }
         setExternalText(cleanExternal);
       } catch (e) {
@@ -350,7 +351,10 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
                 disabled={!canSendExternal}
                 isGenerating={isGenerating}
                 timeLeft={externalTimeLeft}
+                candidateId={candidateId}
                 candidateName={candidateName}
+                result={result}
+                content={externalText}
                 onSent={() => onSent(internalText, externalText)}
               />
             </div>

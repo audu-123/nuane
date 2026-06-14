@@ -11,6 +11,7 @@ interface ScoringBoardProps {
   resources: LearningResource[];
   setResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
   onEndInterview: (record: InterviewRecord) => void;
+  onEmailSent?: (emailData: any) => void;
 }
 
 let dimIdCounter = 0;
@@ -18,7 +19,7 @@ function newDimId() {
   return `dim-${++dimIdCounter}-${Date.now()}`;
 }
 
-export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, resources, setResources, onEndInterview }) => {
+export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, resources, setResources, onEndInterview, onEmailSent }) => {
   const [dimensions, setDimensions] = useState<ScoringDimension[]>(
     candidate.tags.map((t) => ({ id: newDimId(), label: t, score: null }))
   );
@@ -216,6 +217,7 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
             <FeedbackPanel
               result={result}
               dimensions={dimensions}
+              candidateId={candidate.id}
               candidateName={candidate.name}
               round={candidate.round}
               position={candidate.position}
@@ -225,6 +227,9 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
               onSent={(internal, external) => {
                 setIsSent(true);
                 setFinalFeedback({ internal, external });
+                if (onEmailSent) {
+                  onEmailSent({ candidateName: candidate.name, result, content: external });
+                }
               }}
             />
           )}

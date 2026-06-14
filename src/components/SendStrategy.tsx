@@ -6,7 +6,10 @@ interface SendStrategyPanelProps {
   disabled?: boolean;
   isGenerating?: boolean;
   timeLeft?: number;
+  candidateId: number;
   candidateName: string;
+  result: 'pass' | 'fail';
+  content: string;
   onSent?: () => void;
 }
 
@@ -14,7 +17,10 @@ export const SendStrategyPanel: React.FC<SendStrategyPanelProps> = ({
   disabled = false,
   isGenerating = false,
   timeLeft = 0,
+  candidateId,
   candidateName,
+  result,
+  content,
   onSent,
 }) => {
   const [strategy, setStrategy] = useState<SendStrategy>('delay2h');
@@ -36,6 +42,7 @@ export const SendStrategyPanel: React.FC<SendStrategyPanelProps> = ({
     const time = getScheduledTime();
     setSentMessage(`已安排于 ${time} 推送给候选人 ${candidateName}`);
     setSent(true);
+
     onSent?.();
   };
 
@@ -139,3 +146,4 @@ export const SendStrategyPanel: React.FC<SendStrategyPanelProps> = ({
     </div>
   );
 };
+

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { BookOpen, ExternalLink, Heart } from 'lucide-react';
+import { BookOpen, ExternalLink, Heart, Inbox } from 'lucide-react';
 import type { LearningResource } from '../types';
+import type { SentEmailData } from '../App';
 
 // 模拟候选人接收到的反馈内容（来自面试官发送的对外反馈）
 // [AI接入指引]
@@ -35,7 +36,8 @@ const failContent = `
 期待在未来的机会中再次见到您更出色的表现！
 `;
 
-function renderSimpleMarkdown(text: string) {
+function renderSimpleMarkdown(text: string | undefined) {
+  if (!text) return null;
   return text.trim().split('\n').map((line, i) => {
     if (line.startsWith('**') && line.endsWith('**')) {
       return <p key={i} className="font-bold text-gray-900 mt-4 mb-1">{line.slice(2, -2)}</p>;
@@ -48,17 +50,27 @@ function renderSimpleMarkdown(text: string) {
 
 interface CandidateViewProps {
   resources: LearningResource[];
+  emailData: SentEmailData | null;
 }
 
-export const CandidateView: React.FC<CandidateViewProps> = ({ resources }) => {
+export const CandidateView: React.FC<CandidateViewProps> = ({ resources, emailData }) => {
   const [consent, setConsent] = useState<'yes' | 'no' | null>(null);
-  const result = MOCK_RESULT;
+
+  const result = emailData ? emailData.result : MOCK_RESULT;
+  const candidateName = emailData ? emailData.candidateName : '李明';
+  const contentToRender = emailData ? emailData.content : (result === 'pass' ? passContent : failContent);
 
   return (
     <div className="flex flex-col h-full">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-gray-900">候选人视角</h1>
-        <p className="text-sm text-gray-400 mt-0.5">模拟候选人在微信公众号 H5 内看到的页面</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">候选人视角</h1>
+          <p className="text-sm text-gray-400 mt-0.5">模拟候选人在微信公众号内收到的通知，当前显示最新的一条</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <Inbox size={16} className="text-gray-500" />
+          <span className="text-sm font-medium text-gray-700">收件箱 ({emailData ? 1 : 0})</span>
+        </div>
       </div>
 
       {/* Phone frame */}
@@ -86,8 +98,8 @@ export const CandidateView: React.FC<CandidateViewProps> = ({ resources }) => {
                   <div className="text-xs opacity-70">面试反馈通知</div>
                 </div>
               </div>
-              <div className="text-xl font-bold mb-1">您好，李明 👋</div>
-              <div className="text-xs opacity-80">感谢您参与腾讯互娱前端工程师二面</div>
+              <div className="text-xl font-bold mb-1">您好，{candidateName} 👋</div>
+              <div className="text-xs opacity-80">感谢您参与腾讯互娱前端工程师面试</div>
             </div>
 
             <div className="px-4 -mt-4 space-y-3 pb-6">
@@ -149,7 +161,7 @@ export const CandidateView: React.FC<CandidateViewProps> = ({ resources }) => {
                       </span>
                     </div>
                     <div className="text-sm text-gray-700 leading-relaxed">
-                      {renderSimpleMarkdown(result === 'pass' ? passContent : failContent)}
+                      {renderSimpleMarkdown(contentToRender)}
                     </div>
                   </div>
 
