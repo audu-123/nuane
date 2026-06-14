@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Search, Filter } from 'lucide-react';
-import { mockArchiveRecords } from '../data/mockData';
 import type { InterviewRecord } from '../types';
 
 function ScoreBar({ score }: { score: number }) {
@@ -59,13 +58,13 @@ function RecordDetail({ record }: { record: InterviewRecord }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">对内面评</div>
-          <div className="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed line-clamp-5">
+          <div className="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
             {record.feedbackInternal}
           </div>
         </div>
         <div>
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">对外反馈</div>
-          <div className="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed line-clamp-5">
+          <div className="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
             {record.feedbackExternal}
           </div>
         </div>
@@ -81,14 +80,18 @@ function RecordDetail({ record }: { record: InterviewRecord }) {
   );
 }
 
-export const InterviewArchive: React.FC = () => {
+interface InterviewArchiveProps {
+  records: InterviewRecord[];
+}
+
+export const InterviewArchive: React.FC<InterviewArchiveProps> = ({ records }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [resultFilter, setResultFilter] = useState<'all' | 'pass' | 'fail'>('all');
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
 
   // T12: Multi-criteria filtering
   const filtered = useMemo(() => {
-    return mockArchiveRecords.filter((r) => {
+    return records.filter((r) => {
       // 1. Result exact match filter
       if (resultFilter !== 'all' && r.result !== resultFilter) return false;
 
@@ -121,7 +124,7 @@ export const InterviewArchive: React.FC = () => {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-gray-900">面试记录</h1>
-          <p className="text-sm text-gray-400 mt-0.5">历史归档 · 共 {mockArchiveRecords.length} 条</p>
+          <p className="text-sm text-gray-400 mt-0.5">历史归档 · 共 {records.length} 条</p>
         </div>
       </div>
 

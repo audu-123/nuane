@@ -111,11 +111,12 @@ export async function callYuanqiAI(payload: {
   result: 'pass' | 'fail';
   dimensions: { label: string; score: number | null }[];
   candidateName: string;
+  round?: string;
   position?: string;
   noteText?: string;
   department?: string;
 }): Promise<{ internal: string; external: string }> {
-  const { result, dimensions, candidateName, position, noteText, department } = payload;
+  const { result, dimensions, candidateName, round, position, noteText, department } = payload;
 
   // 拼装 user message：将面试数据序列化为结构化文本
   // 只发送有实际打分的维度，未打分的标记为"未评分"
@@ -136,15 +137,21 @@ export async function callYuanqiAI(payload: {
 
   const hasNote = noteText && noteText.trim().length > 0;
 
+  const isFinalRound = round && (round.includes('终') || round.includes('最后') || round.includes('三') || round.toUpperCase().includes('HR'));
+  const constraint = isFinalRound 
+    ? '【重要约束】请严格基于以上提供的数据生成面评。当前为最终面试（最后一面），对于通过的候选人，对外反馈请提供《入职建议》而不是《通关锦囊》或下一轮面试建议。对于未评分的维度，不得编造具体表现描述。如果数据不足，请如实说明。'
+    : '【重要约束】请严格基于以上提供的数据生成面评。对于未评分的维度，不得编造具体表现描述。对于空白备注，不得虚构面试细节。如果数据不足，请如实说明"该维度未评分，暂无法给出具体评价"。';
+
   const userMessage = [
     `候选人姓名：${candidateName}`,
+    `面试轮次：${round || '未知'}`,
     `应聘岗位：${position || '未知'}`,
     `维度评分：${dimensionStr}`,
     `备注：${hasNote ? noteText : '面试官未填写任何备注'}`,
     `面试结果：${result === 'pass' ? '通过' : '未过'}`,
     `投递部门标签：${department || '未知'}`,
     '',
-    '【重要约束】请严格基于以上提供的数据生成面评。对于未评分的维度，不得编造具体表现描述。对于空白备注，不得虚构面试细节。如果数据不足，请如实说明"该维度未评分，暂无法给出具体评价"。',
+    constraint,
   ].join('\n');
 
   const requestBody = {
@@ -186,12 +193,12 @@ export async function callYuanqiAI(payload: {
   const aiReply: string = data?.choices?.[0]?.message?.content || '';
 
   // 尝试按多种标题格式分割对内面评和对外反馈
-  // 支持格式如：### **[对内面评]**、## 对内面评、**对内面评**、【对内面评】等
+  // 支持格式如：### **[对内面评]**、## 对内面评、**对内面评**、【对内面评】、[对内面评] 等
   const internalMatch = aiReply.match(
-    /(?:#{1,3}\s*\*{0,2}\s*[\[【]?\s*对内面评\s*[\]】]?\s*\*{0,2}|对内面评[：:])\s*\n([\s\S]*?)(?=(?:#{1,3}\s*\*{0,2}\s*[\[【]?\s*对外反馈)|$)/
+    /(?:^|\n)\s*(?:#{1,3}\s*)?\**[\[【]?\s*对内面评\s*[\]】]?\**[:：]?\s*\n([\s\S]*?)(?=(?:^|\n)\s*(?:#{1,3}\s*)?\**[\[【]?\s*对外反馈|$)/
   );
   const externalMatch = aiReply.match(
-    /(?:#{1,3}\s*\*{0,2}\s*[\[【]?\s*对外反馈[^】\]]*[\]】]?\s*\*{0,2}|对外反馈[：:])\s*\n([\s\S]*)/
+    /(?:^|\n)\s*(?:#{1,3}\s*)?\**[\[【]?\s*对外反馈[^\]】]*[\]】]?\**[:：]?\s*\n([\s\S]*)/
   );
 
   return {

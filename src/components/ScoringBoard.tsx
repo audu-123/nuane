@@ -3,13 +3,14 @@ import { ArrowLeft, CheckCircle2, XCircle, Zap } from 'lucide-react';
 import { ScoringList } from './ScoringList';
 import { SmartNoteBox } from './SmartNoteBox';
 import { FeedbackPanel } from './FeedbackPanel';
-import type { Candidate, ScoringDimension, LearningResource } from '../types';
+import type { Candidate, ScoringDimension, LearningResource, InterviewRecord } from '../types';
 
 interface ScoringBoardProps {
   candidate: Candidate;
   onBack: () => void;
   resources: LearningResource[];
   setResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
+  onEndInterview: (record: InterviewRecord) => void;
 }
 
 let dimIdCounter = 0;
@@ -17,7 +18,7 @@ function newDimId() {
   return `dim-${++dimIdCounter}-${Date.now()}`;
 }
 
-export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, resources, setResources }) => {
+export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, resources, setResources, onEndInterview }) => {
   const [dimensions, setDimensions] = useState<ScoringDimension[]>(
     candidate.tags.map((t) => ({ id: newDimId(), label: t, score: null }))
   );
@@ -25,6 +26,28 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
   const [result, setResult] = useState<'pass' | 'fail' | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+  const [finalFeedback, setFinalFeedback] = useState({ internal: '', external: '' });
+
+  const handleEndInterviewClick = () => {
+    if (!isSent) return;
+    const newRecord: InterviewRecord = {
+      id: Date.now(),
+      candidateId: candidate.id,
+      candidateName: candidate.name,
+      position: candidate.position,
+      round: candidate.round,
+      date: new Date().toISOString().split('T')[0],
+      result: result!,
+      dimensions: dimensions.map(d => ({ id: d.id, label: d.label, score: d.score || 0 })),
+      noteText: noteText,
+      noteTags: candidate.tags,
+      feedbackInternal: finalFeedback.internal,
+      feedbackExternal: finalFeedback.external,
+      sentAt: new Date().toLocaleString(),
+    };
+    onEndInterview(newRecord);
+  };
 
   const handleScoreChange = (id: string, score: number) => {
     setDimensions((prev) =>
@@ -66,10 +89,10 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
   return (
     <div className="flex flex-col h-full">
       {/* Page Header */}
-      <div className="flex items-center gap-4 mb-5">
+      <div className="flex items-center mb-5 w-full">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mr-4"
         >
           <ArrowLeft size={16} />
           返回列表
@@ -88,6 +111,17 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
             <div className="text-xs text-gray-400">{candidate.position}</div>
           </div>
         </div>
+        <button
+          disabled={!isSent}
+          onClick={handleEndInterviewClick}
+          className={`ml-auto px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            isSent
+              ? 'bg-red-500 text-white hover:bg-red-600 cursor-pointer'
+              : 'bg-gray-300 text-white cursor-not-allowed'
+          }`}
+        >
+          结束面评
+        </button>
       </div>
 
       {/* Main two-column layout */}
@@ -183,10 +217,15 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
               result={result}
               dimensions={dimensions}
               candidateName={candidate.name}
+              round={candidate.round}
               position={candidate.position}
               noteText={noteText}
               resources={resources}
               setResources={setResources}
+              onSent={(internal, external) => {
+                setIsSent(true);
+                setFinalFeedback({ internal, external });
+              }}
             />
           )}
 

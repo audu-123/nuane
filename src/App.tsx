@@ -4,15 +4,16 @@ import { InterviewQueue } from './components/InterviewQueue';
 import { ScoringBoard } from './components/ScoringBoard';
 import { CandidateView } from './components/CandidateView';
 import { InterviewArchive } from './components/InterviewArchive';
-import { mockCandidates, learningResources as initialResources } from './data/mockData';
+import { mockCandidates, learningResources as initialResources, mockArchiveRecords } from './data/mockData';
 import { fetchCandidatesFromFeishu } from './services/feishu';
-import type { Candidate, Page, LearningResource } from './types';
+import type { Candidate, Page, LearningResource, InterviewRecord } from './types';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('queue');
   const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [resources, setResources] = useState<LearningResource[]>(initialResources);
+  const [archiveRecords, setArchiveRecords] = useState<InterviewRecord[]>(mockArchiveRecords);
 
   useEffect(() => {
     const loadFeishuData = async () => {
@@ -41,6 +42,13 @@ export default function App() {
     }
   };
 
+  const handleEndInterview = (record: InterviewRecord) => {
+    setArchiveRecords(prev => [record, ...prev]);
+    setCandidates(prev => prev.filter(c => c.id !== record.candidateId));
+    setCurrentPage('archive');
+    setSelectedCandidate(null);
+  };
+
   const renderContent = () => {
     switch (currentPage) {
       case 'queue':
@@ -63,16 +71,16 @@ export default function App() {
             );
           }
           return (
-            <ScoringBoard candidate={fallback} onBack={handleBackFromScoring} resources={resources} setResources={setResources} />
+            <ScoringBoard candidate={fallback} onBack={handleBackFromScoring} resources={resources} setResources={setResources} onEndInterview={handleEndInterview} />
           );
         }
         return (
-          <ScoringBoard candidate={selectedCandidate} onBack={handleBackFromScoring} resources={resources} setResources={setResources} />
+          <ScoringBoard candidate={selectedCandidate} onBack={handleBackFromScoring} resources={resources} setResources={setResources} onEndInterview={handleEndInterview} />
         );
       case 'candidate':
         return <CandidateView resources={resources} />;
       case 'archive':
-        return <InterviewArchive />;
+        return <InterviewArchive records={archiveRecords} />;
       default:
         return null;
     }

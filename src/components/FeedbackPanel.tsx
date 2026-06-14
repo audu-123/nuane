@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, MessageSquare, Trash2, Plus } from 'lucide-react';
-import { HighlightShuttle } from './HighlightShuttle';
+import { ReadingViewer } from './ReadingViewer';
 import { SendStrategyPanel } from './SendStrategy';
 import { mockFeedback } from '../data/mockData';
 import { callYuanqiAI } from '../services/feishu';
@@ -11,10 +11,12 @@ interface FeedbackPanelProps {
   result: 'pass' | 'fail';
   dimensions: ScoringDimension[];
   candidateName: string;
+  round: string;
   position: string;
   noteText: string;
   resources: LearningResource[];
   setResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
+  onSent: (internal: string, external: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,18 +30,11 @@ interface FeedbackPanelProps {
 //       【备注标签】【面试结果（通过/未过）】，
 //       生成一份对内面评和一份对外反馈。
 //       对内面评：语气专业客观，总结亮点或淘汰原因。
-//       对外反馈：若通过，输出《通关锦囊》；若未过，输出《成长建议书》。
-//       所有涉及能力定性的关键名词请用 <tag> 包裹，定性结论词请用 <hl> 包裹。"
+//       对外反馈：若通过，输出《通关锦囊》；若未过，输出《成长建议书》。"
 //   2. 获取 Agent 的 API endpoint 和 token。
 //   3. 将面试官的打分数据序列化为 JSON，作为 user message 传入：
 //        { candidateName, position, dimensions: [{label, score}], noteTags, result }
-//   4. 解析返回的字符串，提取 <tag> 和 <hl> 标签渲染高亮。
 //   参考文档：https://yuanqi.tencent.com/docs/api
-//
-// [AI接入指引] ── 冲突检测（打分与 AI 定性词语义背离）
-//   在 System Prompt 中要求 AI 自检：
-//   "若某维度打分为负（<0），但你生成的对应定性词为正面语义，
-//    请在该词前插入 <conflict> 标签以触发前端冲突预警。"
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,8 +73,8 @@ function ResourceCards({ resources, setResources }: { resources: LearningResourc
   };
 
   return (
-    <div className="mt-3 space-y-2">
-      {resources.map((r) => (
+    <div className="space-y-2">
+      {resources.length > 0 ? resources.map((r) => (
         <div key={r.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#0052D9]/30 hover:shadow-sm transition-all group">
           <span className="text-xl flex-shrink-0">{r.icon}</span>
           <div className="flex-1 min-w-0">
@@ -104,7 +99,11 @@ function ResourceCards({ resources, setResources }: { resources: LearningResourc
             </a>
           </div>
         </div>
-      ))}
+      )) : !isAdding && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center">
+          <p className="text-xs text-gray-400">暂时没有相关学习资源</p>
+        </div>
+      )}
       
       {isAdding ? (
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
@@ -159,8 +158,20 @@ function ResourceCards({ resources, setResources }: { resources: LearningResourc
   );
 }
 
-export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName, position, noteText, resources, setResources }) => {
+export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName, round, position, noteText, resources, setResources, onSent }) => {
   const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
+  const [canCopyInternal, setCanCopyInternal] = useState(false);
+  const [canSendExternal, setCanSendExternal] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [internalTimeLeft, setInternalTimeLeft] = useState(10);
+  const [externalTimeLeft, setExternalTimeLeft] = useState(10);
+  const [isPageVisible, setIsPageVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => setIsPageVisible(!document.hidden);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const [internalText, setInternalText] = useState('');
   const [externalText, setExternalText] = useState('');
@@ -171,6 +182,12 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
     // Reset texts
     setInternalText('');
     setExternalText('');
+    setResources([]);
+    setIsGenerating(true);
+    setCanCopyInternal(false);
+    setCanSendExternal(false);
+    setInternalTimeLeft(10);
+    setExternalTimeLeft(10);
     // Call Yuanqi AI (fallback to mock on error)
     const fetchFeedback = async () => {
       try {
@@ -178,6 +195,7 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
           result,
           dimensions,
           candidateName,
+          round,
           position,
           noteText,
         });
@@ -185,7 +203,13 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
 
         // Process external text: extract JSON resource cards and strip them from display
         let cleanExternal = aiResult.external;
-        const jsonMatch = cleanExternal.match(/```json\s*\n([\s\S]*?)\n\s*```/);
+        
+        // Safety net: aggressively strip any "视角轮盘" or "xxx视角" mentions that AI might accidentally output
+        cleanExternal = cleanExternal.replace(/\*?\s*\(?视角轮盘[：:].*?\)?\s*\*?/g, '').trim();
+        cleanExternal = cleanExternal.replace(/（?以?.*?视角.*?）?/g, '').trim();
+
+        // 优先匹配 ```json ... ```，如果没有则尝试匹配包含对象的 JSON 数组 [ { ... } ]
+        const jsonMatch = cleanExternal.match(/```json\s*([\s\S]*?)\s*```/) || cleanExternal.match(/(\[\s*\{[\s\S]*\}\s*\])/);
         if (jsonMatch && jsonMatch[1]) {
           try {
             const parsed = JSON.parse(jsonMatch[1]);
@@ -195,19 +219,77 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
           } catch {
             // JSON parse failed, keep existing resources
           }
-          // Remove the JSON code block from the displayed text
-          cleanExternal = cleanExternal.replace(/```json\s*\n[\s\S]*?\n\s*```/, '').trim();
+          // Remove the JSON code block from the displayed text (handle both cases)
+          cleanExternal = cleanExternal.replace(/```json\s*[\s\S]*?\s*```/, '').replace(/\[\s*\{[\s\S]*\}\s*\]/, '').trim();
         }
         setExternalText(cleanExternal);
       } catch (e) {
         console.error('AI feedback fetch error, falling back to mock:', e);
         // Fallback to mock
-        setInternalText(mockFeedback[result].internal);
-        setExternalText(mockFeedback[result].external);
+        const isFinal = round.includes('终') || round.includes('最后') || round.includes('三') || round.toUpperCase().includes('HR');
+        const mockKey = (result === 'pass' && isFinal) ? 'passFinal' : result;
+        setInternalText((mockFeedback as any)[mockKey]?.internal || mockFeedback[result].internal);
+        setExternalText((mockFeedback as any)[mockKey]?.external || mockFeedback[result].external);
+
+        // Generate mock resources dynamically based on negative dimensions
+        const MOCK_RESOURCE_DB: Record<string, LearningResource> = {
+          '算法': { id: 1, icon: '⚡', title: '算法与数据结构系统课', desc: '从基础到进阶，涵盖数组、链表、树等核心主题。', url: 'https://ke.qq.com' },
+          '系统设计': { id: 2, icon: '🏗️', title: '系统架构设计实战', desc: '深入解析大规模应用架构设计，包含高并发与微服务。', url: 'https://ke.qq.com' },
+          'react': { id: 3, icon: '📘', title: 'React 进阶与原理解析', desc: '深入 React 底层实现，掌握 Fiber、Hooks 核心原理。', url: 'https://ke.qq.com' },
+          '用户洞察': { id: 4, icon: '👁️', title: '用户体验与需求洞察', desc: '从场景出发，深入理解用户需求，提升产品同理心。', url: 'https://ke.qq.com' },
+          '需求分析': { id: 5, icon: '📊', title: '高阶需求分析方法论', desc: '掌握需求真伪辨别、优先级排序及业务价值度量。', url: 'https://ke.qq.com' },
+          '产品思维': { id: 6, icon: '💡', title: '产品经理的底层逻辑', desc: '构建系统化产品思维体系，从0到1拆解产品设计。', url: 'https://ke.qq.com' },
+          '沟通': { id: 7, icon: '💬', title: '跨部门协作与高效沟通', desc: '提升职场沟通技巧，解决跨团队协作中的冲突。', url: 'https://ke.qq.com' },
+          'go': { id: 8, icon: '🐹', title: 'Go 语言高并发实战', desc: '深入学习 Goroutine、Channel 与底层并发模型。', url: 'https://ke.qq.com' },
+          '数据分析': { id: 9, icon: '📈', title: '数据驱动业务决策', desc: '利用 SQL 与统计学思维，从海量数据中挖掘业务增长点。', url: 'https://ke.qq.com' },
+          '项目管理': { id: 10, icon: '📅', title: '敏捷项目管理与落地', desc: '掌握 Scrum 与 Kanban，提升团队交付效率。', url: 'https://ke.qq.com' },
+        };
+
+        const lowScoreDims = dimensions.filter(d => d.score !== null && d.score < 0);
+        if (lowScoreDims.length > 0) {
+          const generatedResources = lowScoreDims.map((d, i) => {
+            const matchKey = Object.keys(MOCK_RESOURCE_DB).find(k => d.label.toLowerCase().includes(k.toLowerCase()));
+            if (matchKey) {
+              return { ...MOCK_RESOURCE_DB[matchKey], id: Date.now() + i };
+            }
+            return {
+              id: Date.now() + i,
+              icon: '📚',
+              title: `${d.label} 专项提升课程`,
+              desc: `针对 ${d.label} 能力的系统性强化训练，弥补知识盲区。`,
+              url: 'https://ke.qq.com'
+            };
+          });
+          setResources(generatedResources);
+        } else {
+          setResources([]);
+        }
+      } finally {
+        setIsGenerating(false);
       }
     };
     fetchFeedback();
   }, [result, dimensions, candidateName, position, noteText, setResources]);
+
+  useEffect(() => {
+    if (isGenerating || !isPageVisible) return;
+
+    if (activeTab === 'internal') {
+      if (internalTimeLeft > 0) {
+        const timer = setTimeout(() => setInternalTimeLeft(prev => prev - 1), 1000);
+        return () => clearTimeout(timer);
+      } else if (!canCopyInternal) {
+        setCanCopyInternal(true);
+      }
+    } else if (activeTab === 'external') {
+      if (externalTimeLeft > 0) {
+        const timer = setTimeout(() => setExternalTimeLeft(prev => prev - 1), 1000);
+        return () => clearTimeout(timer);
+      } else if (!canSendExternal) {
+        setCanSendExternal(true);
+      }
+    }
+  }, [internalTimeLeft, externalTimeLeft, activeTab, isGenerating, isPageVisible, canCopyInternal, canSendExternal]);
 
   const tabs = [
     { id: 'internal' as const, label: '对内面评', icon: <FileText size={13} /> },
@@ -237,37 +319,39 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
       <div className="p-4">
         {activeTab === 'internal' && (
           <div>
-            <HighlightShuttle
+            <ReadingViewer
               rawText={internalText}
+              isGenerating={isGenerating}
+              timeLeft={internalTimeLeft}
               onChangeRawText={setInternalText}
-              dimensions={dimensions}
             />
           </div>
         )}
 
         {activeTab === 'external' && (
           <div className="space-y-4">
-            <HighlightShuttle
+            <ReadingViewer
               rawText={externalText}
-              onChangeRawText={setExternalText}
-              dimensions={dimensions}
               isMarkdown={true}
+              isGenerating={isGenerating}
+              timeLeft={externalTimeLeft}
+              hideCopy={true}
+              onChangeRawText={setExternalText}
             />
             
             {/* Resource cards */}
             <div className="pt-1">
               <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">📚 推荐学习资源</div>
-              <div className="grid gap-3">
-                {resources.map((r) => (
-                  <ResourceCard key={r.id} resource={r} />
-                ))}
-              </div>
+              <ResourceCards resources={resources} setResources={setResources} />
             </div>
             {/* Send strategy */}
             <div className="pt-1 border-t border-gray-100">
               <SendStrategyPanel
-                disabled={false}
+                disabled={!canSendExternal}
+                isGenerating={isGenerating}
+                timeLeft={externalTimeLeft}
                 candidateName={candidateName}
+                onSent={() => onSent(internalText, externalText)}
               />
             </div>
           </div>

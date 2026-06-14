@@ -4,12 +4,18 @@ import type { SendStrategy } from '../types';
 
 interface SendStrategyPanelProps {
   disabled?: boolean;
+  isGenerating?: boolean;
+  timeLeft?: number;
   candidateName: string;
+  onSent?: () => void;
 }
 
 export const SendStrategyPanel: React.FC<SendStrategyPanelProps> = ({
   disabled = false,
+  isGenerating = false,
+  timeLeft = 0,
   candidateName,
+  onSent,
 }) => {
   const [strategy, setStrategy] = useState<SendStrategy>('delay2h');
   const [customTime, setCustomTime] = useState('');
@@ -30,13 +36,24 @@ export const SendStrategyPanel: React.FC<SendStrategyPanelProps> = ({
     const time = getScheduledTime();
     setSentMessage(`已安排于 ${time} 推送给候选人 ${candidateName}`);
     setSent(true);
+    onSent?.();
   };
 
   if (disabled) {
     return (
-      <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center">
-        <Send size={20} className="text-gray-300 mx-auto mb-2" />
-        <p className="text-xs text-gray-400">完成高亮词审核后，发送策略控制台将自动激活</p>
+      <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center flex flex-col items-center justify-center">
+        {isGenerating ? (
+          <>
+            <Send size={20} className="text-gray-300 mb-2" />
+            <p className="text-xs text-gray-400">AI 正在生成内容，请稍候...</p>
+          </>
+        ) : (
+          <>
+            <Clock size={20} className="text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600 mb-1">请阅读全文 ({timeLeft}s)</p>
+            <p className="text-xs text-gray-400">倒计时结束后，发送策略控制台将自动激活</p>
+          </>
+        )}
       </div>
     );
   }
