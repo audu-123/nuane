@@ -43,26 +43,17 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
     ]);
   };
 
-  // Mock AI generation with loading animation
-  // [AI接入指引]
-  // 此处模拟 AI 生成延迟，实际替换为：
-  // const response = await fetch('https://yuanqi.tencent.com/api/v1/chat', {
-  //   method: 'POST',
-  //   headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({
-  //     assistant_id: AGENT_ID,
-  //     messages: [{ role: 'user', content: JSON.stringify({ candidate, dimensions, result, noteTags }) }],
-  //   }),
-  // });
+  // 点击通过/未过后，立即显示 FeedbackPanel（其内部 useEffect 会调用元器 AI）
   const handleResultSelect = (r: 'pass' | 'fail') => {
     if (result === r) return;
     setResult(r);
     setShowFeedback(false);
     setIsGenerating(true);
+    // 短暂显示 loading 动画后展示 FeedbackPanel，实际 AI 调用在 FeedbackPanel 内完成
     setTimeout(() => {
       setIsGenerating(false);
       setShowFeedback(true);
-    }, 1200);
+    }, 500);
   };
 
   const getRoundBadgeColor = (round: string) => {
@@ -192,6 +183,8 @@ export const ScoringBoard: React.FC<ScoringBoardProps> = ({ candidate, onBack, r
               result={result}
               dimensions={dimensions}
               candidateName={candidate.name}
+              position={candidate.position}
+              noteText={noteText}
               resources={resources}
               setResources={setResources}
             />

@@ -3,12 +3,16 @@ import { FileText, MessageSquare, Trash2, Plus } from 'lucide-react';
 import { HighlightShuttle } from './HighlightShuttle';
 import { SendStrategyPanel } from './SendStrategy';
 import { mockFeedback } from '../data/mockData';
+import { callYuanqiAI } from '../services/feishu';
+import ResourceCard from './ResourceCard';
 import type { ScoringDimension, LearningResource } from '../types';
 
 interface FeedbackPanelProps {
   result: 'pass' | 'fail';
   dimensions: ScoringDimension[];
   candidateName: string;
+  position: string;
+  noteText: string;
   resources: LearningResource[];
   setResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
 }
@@ -155,21 +159,55 @@ function ResourceCards({ resources, setResources }: { resources: LearningResourc
   );
 }
 
-export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName, resources, setResources }) => {
+export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions, candidateName, position, noteText, resources, setResources }) => {
   const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
 
-  // [AI接入指引] 以下 mockFeedback[result] 为 Mock 硬编码数据。
-  // 替换方式：在 ScoringBoard 的 handleResultSelect 中调用元器 Agent API，
-  // 将返回的字符串（含 <tag>/<hl> 标签）直接传入此组件的 rawText。
-  const feedback = mockFeedback[result];
+  const [internalText, setInternalText] = useState('');
+  const [externalText, setExternalText] = useState('');
 
-  const [internalText, setInternalText] = useState(feedback.internal);
-  const [externalText, setExternalText] = useState(feedback.external);
-
+  // Fetch AI feedback when result is decided
   useEffect(() => {
-    setInternalText(mockFeedback[result].internal);
-    setExternalText(mockFeedback[result].external);
-  }, [result]);
+    if (!result) return;
+    // Reset texts
+    setInternalText('');
+    setExternalText('');
+    // Call Yuanqi AI (fallback to mock on error)
+    const fetchFeedback = async () => {
+      try {
+        const aiResult = await callYuanqiAI({
+          result,
+          dimensions,
+          candidateName,
+          position,
+          noteText,
+        });
+        setInternalText(aiResult.internal);
+
+        // Process external text: extract JSON resource cards and strip them from display
+        let cleanExternal = aiResult.external;
+        const jsonMatch = cleanExternal.match(/```json\s*\n([\s\S]*?)\n\s*```/);
+        if (jsonMatch && jsonMatch[1]) {
+          try {
+            const parsed = JSON.parse(jsonMatch[1]);
+            if (Array.isArray(parsed)) {
+              setResources(parsed.map((item: any, idx: number) => ({ ...item, id: item.id || idx })));
+            }
+          } catch {
+            // JSON parse failed, keep existing resources
+          }
+          // Remove the JSON code block from the displayed text
+          cleanExternal = cleanExternal.replace(/```json\s*\n[\s\S]*?\n\s*```/, '').trim();
+        }
+        setExternalText(cleanExternal);
+      } catch (e) {
+        console.error('AI feedback fetch error, falling back to mock:', e);
+        // Fallback to mock
+        setInternalText(mockFeedback[result].internal);
+        setExternalText(mockFeedback[result].external);
+      }
+    };
+    fetchFeedback();
+  }, [result, dimensions, candidateName, position, noteText, setResources]);
 
   const tabs = [
     { id: 'internal' as const, label: '对内面评', icon: <FileText size={13} /> },
@@ -219,7 +257,11 @@ export const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ result, dimensions
             {/* Resource cards */}
             <div className="pt-1">
               <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">📚 推荐学习资源</div>
-              <ResourceCards resources={resources} setResources={setResources} />
+              <div className="grid gap-3">
+                {resources.map((r) => (
+                  <ResourceCard key={r.id} resource={r} />
+                ))}
+              </div>
             </div>
             {/* Send strategy */}
             <div className="pt-1 border-t border-gray-100">
